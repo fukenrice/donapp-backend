@@ -274,3 +274,35 @@ exports.deleteCharity = functions.https.onRequest(async (req, res) => {
     return res.status(500).json({error: "Internal server error"});
   }
 });
+
+exports.onNewPost = functions.firestore.document("campaigns/{campaignId}/posts/{postId}")
+    .onCreate(async (snapshot, context) => {
+      const campaignId = context.params.campaignId;
+
+      const postData = snapshot.data();
+
+      if (postData.finish) {
+        await admin.firestore().doc(campaignId).update({closed: true});
+      }
+
+      // TODO: add notification
+
+      return Promise.resolve();
+    });
+
+exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
+    .onCreate((snapshot, context) => {
+      // TODO: add notification
+
+
+      return Promise.resolve();
+    });
+
+exports.updatePayment = functions.https.onRequest((req, resp) => {
+
+});
+
+// eslint-disable-next-line no-unused-vars
+const sendNotification = async (title, body, sourceId, deeplink) => {
+
+};
