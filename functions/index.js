@@ -60,12 +60,11 @@ exports.createCharity = functions.https.onRequest(async (req, res) => {
       !charity.campaigns ||
       !charity.creatorid ||
       !charity.description ||
-      !charity.egrul ||
       !charity.fullName ||
       !charity.managerContact ||
       !charity.name ||
       !charity.organization === undefined ||
-      !charity.ogrn ||
+      (charity.organization && (!charity.egrul || !charity.ogrn)) ||
       !charity.tags
     ) {
       return res.status(400).json({error: "Bad request"});
@@ -83,13 +82,13 @@ exports.createCharity = functions.https.onRequest(async (req, res) => {
       confirmed: charity.confirmed || false,
       creatorid: charity.creatorid,
       description: charity.description,
-      egrul: charity.egrul,
+      egrul: charity.egrul || null,
       fullName: charity.fullName,
       location: charity.location || null,
       managerContact: charity.managerContact,
       name: charity.name,
       organization: charity.organization,
-      ogrn: charity.ogrn,
+      ogrn: charity.ogrn || null,
       photourl: charity.photourl || null,
       tags: charity.tags,
       url: charity.url || null,
@@ -136,12 +135,11 @@ exports.updateCharity = functions.https.onRequest(async (req, res) => {
       !charity.campaigns ||
       !charity.creatorid ||
       !charity.description ||
-      !charity.egrul ||
       !charity.fullName ||
       !charity.managerContact ||
       !charity.name ||
       !charity.organization === undefined ||
-      !charity.ogrn ||
+      (charity.organization && (!charity.egrul || !charity.ogrn)) ||
       !charity.tags) {
       return res.status(400).json({error: "Bad request"});
     }
@@ -202,13 +200,13 @@ exports.updateCharity = functions.https.onRequest(async (req, res) => {
       confirmed: charity.confirmed || false,
       creatorid: charity.creatorid,
       description: charity.description,
-      egrul: charity.egrul,
+      egrul: charity.egrul || null,
       fullName: charity.fullName,
       location: charity.location || null,
       managerContact: charity.managerContact,
       name: charity.name,
       organization: charity.organization,
-      ogrn: charity.ogrn,
+      ogrn: charity.ogrn || null,
       photourl: charity.photourl || null,
       tags: charity.tags,
       url: charity.url || null,
