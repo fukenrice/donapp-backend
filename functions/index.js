@@ -280,7 +280,7 @@ exports.onNewPost = functions.firestore.document("campaigns/{campaignId}/posts/{
       const postData = snapshot.data();
 
       if (postData.finish) {
-        await admin.firestore().doc(campaignId).update({closed: true});
+        await admin.firestore().collection("campaigns").doc(campaignId).update({closed: true});
       }
 
       // TODO: add notification
