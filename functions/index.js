@@ -9,6 +9,10 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const Geohash = require("ngeohash");
+const express = require("express");
+const crypto = require("crypto");
+
+const app = express();
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -296,9 +300,91 @@ exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
       return Promise.resolve();
     });
 
-exports.updatePayment = functions.https.onRequest((req, resp) => {
+exports.createCampaignAndPayment = functions.https.onRequest(async (req, res) => {
+  try {
+    const idToken = req.get("Authorization");
+    if (!idToken) {
+      return res.status(401).json({error: "Unauthorized"});
+    }
+    if (!req.body || !req.body.yoomoney || !req.body.secret) {
+      return res.status(400).json({error: "Bad request"});
+    }
+    try {
+      await admin.auth().verifyIdToken(idToken);
+    } catch (e) {
+      return res.status(401).json({error: "Unauthorized"});
+    }
 
+    const {yoomoney, secret, ownerId} = req.body;
+
+    let campaignRef;
+
+    const campaignQuerySnapshot = await admin.firestore().collection("campaigns").where("ownerid", "==", ownerId).get();
+    if (campaignQuerySnapshot.empty) {
+      campaignRef = await admin.firestore().collection("campaigns").add({yoomoney: yoomoney, ownerid: ownerId});
+    } else {
+      campaignRef = campaignQuerySnapshot.docs[0].ref;
+      await campaignRef.set({yoomoney: yoomoney, ownerid: ownerId});
+    }
+
+    await campaignRef.collection("private").doc("payment").set({
+      secret: secret,
+    });
+
+    // Возвращаем id созданного документа в коллекции campaigns
+    return res.status(200).json({campaignId: campaignRef.id});
+  } catch (error) {
+    console.error("Internal error: " + error);
+    return res.status(500).json({error: "Internal server error"});
+  }
 });
+
+/* eslint-disable camelcase */
+app.post("/:campaignID", async (req, res) => {
+  try {
+    const campaignID = req.params.campaignID;
+    // Получаем параметры из URL и тела запроса
+    const {test_notification, sha1_hash, notification_type, operation_id, amount, currency, datetime, sender, codepro, label} = req.body;
+
+    // Получаем значение notification_secret из коллекции campaigns/{campaignID}/private
+    const campaignDoc = await admin.firestore().collection("campaigns").doc(campaignID).get();
+    if (!campaignDoc.exists) {
+      return res.status(404).json({error: "Campaign not found"});
+    }
+
+    const privateDoc = await campaignDoc.ref.collection("private").doc("payment").get();
+    if (!privateDoc.exists) {
+      return res.status(404).json({error: "Payment data not found in campaign"});
+    }
+
+    const {secret: notification_secret} = privateDoc.data();
+
+    // Проверяем значение SHA-1 хэша
+    const calculatedHash = crypto.createHash("sha1")
+        .update(`${notification_type}&${operation_id}&${amount}&${currency}&${datetime}&${sender}&${codepro}&${notification_secret}&${label}`)
+        .digest("hex");
+
+    if (calculatedHash === sha1_hash) {
+      if (test_notification && test_notification === "true") {
+        await campaignDoc.ref.update({confirmednotifications: true});
+        return res.status(200).json({message: "Success"});
+      } else {
+        await campaignDoc.ref.update({collectedamount: admin.firestore.FieldValue.increment(parseFloat(amount))});
+        return res.status(200).json({message: "Success"});
+      }
+    } else {
+      console.log("string: " + `${notification_type}&${operation_id}&${amount}&${currency}&${datetime}&${sender}&${codepro}&${notification_secret}&${label}`);
+      console.log("sha_req: " + sha1_hash);
+      console.log("calculated hash: " + calculatedHash);
+      return res.status(400).json({error: "Wrong SHA-1"});
+    }
+  } catch (error) {
+    console.error("Ошибка обработки уведомления о платеже:", error);
+    return res.status(500).json({error: "Internal server error"});
+  }
+});
+
+exports.updatePayment = functions.https.onRequest(app);
 
 // eslint-disable-next-line no-unused-vars
 const sendNotification = async (title, body, sourceId, deeplink) => {
