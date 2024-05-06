@@ -300,6 +300,20 @@ exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
       return Promise.resolve();
     });
 
+exports.onNewComment = functions.firestore.document("campaigns/{campaignId}/posts/{postId}/comments/{commentId}")
+    .onCreate(async (snapshot, context) => {
+      const campaignId = context.params.campaignId;
+      const postId = context.params.postId;
+
+      await admin.firestore()
+          .collection("campaigns").doc(campaignId)
+          .collection("posts").doc(postId)
+          .update({commentsCount: admin.firestore.FieldValue.increment(1)});
+
+      return Promise.resolve();
+    });
+
+
 exports.createCampaignAndPayment = functions.https.onRequest(async (req, res) => {
   try {
     const idToken = req.get("Authorization");
