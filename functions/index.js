@@ -333,12 +333,12 @@ exports.createCampaignAndPayment = functions.https.onRequest(async (req, res) =>
 
     let campaignRef;
 
-    const campaignQuerySnapshot = await admin.firestore().collection("campaigns").where("ownerid", "==", ownerId).get();
+    const campaignQuerySnapshot = await admin.firestore().collection("campaigns").where("creatorid", "==", ownerId).get();
     if (campaignQuerySnapshot.empty) {
-      campaignRef = await admin.firestore().collection("campaigns").add({yoomoney: yoomoney, ownerid: ownerId});
+      campaignRef = await admin.firestore().collection("campaigns").add({yoomoney: yoomoney, creatorid: ownerId});
     } else {
       campaignRef = campaignQuerySnapshot.docs[0].ref;
-      await campaignRef.set({yoomoney: yoomoney, ownerid: ownerId});
+      await campaignRef.set({yoomoney: yoomoney, creatorid: ownerId});
     }
 
     await campaignRef.collection("private").doc("payment").set({
