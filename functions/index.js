@@ -300,6 +300,15 @@ exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
       return Promise.resolve();
     });
 
+exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
+    .onUpdate((snapshot, context) => {
+      if (snapshot.before.data().highPriority !== snapshot.after.data().highPriority) {
+        // TODO: add notification
+      }
+
+      return Promise.resolve();
+    });
+
 exports.onNewComment = functions.firestore.document("campaigns/{campaignId}/posts/{postId}/comments/{commentId}")
     .onCreate(async (snapshot, context) => {
       const campaignId = context.params.campaignId;
@@ -384,6 +393,13 @@ app.post("/:campaignID", async (req, res) => {
         return res.status(200).json({message: "Success"});
       } else {
         await campaignDoc.ref.update({collectedamount: admin.firestore.FieldValue.increment(parseFloat(amount))});
+        const campaignData = campaignDoc.data();
+        if (campaignData.totalamount !== 0) {
+          if (campaignData.collectedamount + parseFloat(amount) >= campaignData.totalamount) {
+            // TODO: send notification
+          }
+        }
+
         return res.status(200).json({message: "Success"});
       }
     } else {
