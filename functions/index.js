@@ -404,3 +404,112 @@ exports.updatePayment = functions.https.onRequest(app);
 const sendNotification = async (title, body, sourceId, deeplink) => {
 
 };
+
+
+exports.getCharityAnalytics = functions.https.onRequest(async (req, res) => {
+  try {
+    if (req.method !== "GET") {
+      return res.status(405).send("Method Not Allowed");
+    }
+
+    const idToken = req.get("Authorization");
+    if (!idToken) {
+      return res.status(401).json({error: "Unauthorized"});
+    }
+
+    if (!req.query || !req.query.charity) {
+      return res.status(400).json({error: "Bad request"});
+    }
+
+    const charityId = req.query.charity;
+
+    const charityDocRef = admin.firestore().collection("charities").doc(charityId);
+    const charity = await charityDocRef.get();
+    if (!charity.exists) {
+      return res.status(404).json({error: "Charity not found"});
+    }
+
+    const charityData = charity.data();
+
+    try {
+      const decodedIdToken = await admin.auth().verifyIdToken(idToken);
+      if (decodedIdToken.uid !== charityData.creatorid) {
+        return res.status(403).json({error: "Insufficient permissions"});
+      }
+    } catch (e) {
+      return res.status(401).json({error: "Unauthorized"});
+    }
+
+    return res.status(200).json({
+      uniqueDonorsOverall: 123,
+      uniqueDonorsMonth: 32,
+      subscribersStats: {
+        month: ["Дек", "Янв", "Фев", "Мар", "Апр", "Май"],
+        count: [10, 30, 33, 25, 40, 100],
+      },
+      collectedAmountStats: {
+        month: ["Дек", "Янв", "Фев", "Мар", "Апр", "Май"],
+        amount: [15000, 20000, 5000, 5000, 40000, 50000],
+      },
+    });
+  } catch (e) {
+    console.error("Error getting stats: ", e);
+    return res.status(500).json({error: "Internal server error"});
+  }
+});
+
+
+exports.getCampaignAnalytics = functions.https.onRequest(async (req, res) => {
+  try {
+    if (req.method !== "GET") {
+      return res.status(405).send("Method Not Allowed");
+    }
+
+    const idToken = req.get("Authorization");
+    if (!idToken) {
+      return res.status(401).json({error: "Unauthorized"});
+    }
+
+    if (!req.query || !req.query.campaign) {
+      return res.status(400).json({error: "Bad request"});
+    }
+
+    const campaignId = req.query.campaign;
+
+    const campaignDocRef = admin.firestore().collection("campaigns").doc(campaignId);
+    const campaign = await campaignDocRef.get();
+    if (!campaign.exists) {
+      return res.status(404).json({error: "Campaign not found"});
+    }
+
+    const campaignData = campaign.data();
+
+    const charity = await admin.firestore().collection("charities").doc(campaignData.parentcharity).get();
+    const charityData = charity.data();
+
+    try {
+      const decodedIdToken = await admin.auth().verifyIdToken(idToken);
+      if (decodedIdToken.uid !== charityData.creatorid) {
+        return res.status(403).json({error: "Insufficient permissions"});
+      }
+    } catch (e) {
+      return res.status(401).json({error: "Unauthorized"});
+    }
+
+    return res.status(200).json({
+      uniqueDonorsOverall: 123,
+      uniqueDonorsMonth: 32,
+      subscribersStats: {
+        month: ["Дек", "Янв", "Фев", "Мар", "Апр", "Май"],
+        count: [10, 30, 33, 25, 40, 100],
+      },
+      collectedAmountStats: {
+        month: ["Дек", "Янв", "Фев", "Мар", "Апр", "Май"],
+        amount: [15000, 20000, 5000, 5000, 40000, 50000],
+      },
+    });
+  } catch (e) {
+    console.error("Error getting stats: ", e);
+    return res.status(500).json({error: "Internal server error"});
+  }
+});
