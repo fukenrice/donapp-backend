@@ -285,27 +285,47 @@ exports.onNewPost = functions.firestore.document("campaigns/{campaignId}/posts/{
 
       if (postData.finish) {
         await admin.firestore().collection("campaigns").doc(campaignId).update({closed: true});
+        const campaign = await admin.firestore().collection("campaigns").doc(campaignId).get();
+        const campaignData = campaign.data();
+        sendNotification(
+            "Сбор завершен",
+            `Сбор ${campaignData.name} завершился!`,
+            `${campaignId}_THE_END`,
+        );
+      } else {
+        const campaign = await admin.firestore().collection("campaigns").doc(campaignId).get();
+        const campaignData = campaign.data();
+        sendNotification(
+            "Новая запись",
+            `Сбор ${campaignData.name} опубликовал новую запись: ${postData.header}!`,
+            `${campaignId}_NEW_POST`,
+        );
       }
-
-      // TODO: add notification
 
       return Promise.resolve();
     });
 
 exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
-    .onCreate((snapshot, context) => {
-      // TODO: add notification
-
-
+    .onCreate(async (snapshot, context) => {
+      const charity = await admin.firestore().collection("charities").doc(snapshot.data().parentcharity).get();
+      const charityData = charity.data();
+      sendNotification(
+          "Новый сбор",
+          `Организация ${charityData.name} открыла новый сбор: ${snapshot.data().name}!`,
+          `${charity.id}_NEW_CAMPAIGN`,
+      );
       return Promise.resolve();
     });
 
 exports.onNewCampaign = functions.firestore.document("campaigns/{campaignId}")
     .onUpdate((snapshot, context) => {
       if (snapshot.before.data().highPriority !== snapshot.after.data().highPriority) {
-        // TODO: add notification
+        sendNotification(
+            "Изменился приоритет!",
+            `У сбора ${snapshot.before.data().name} изменился приоритет!`,
+            `${snapshot.before.id}_PRIORITY_MESSAGE`,
+        );
       }
-
       return Promise.resolve();
     });
 
@@ -396,7 +416,11 @@ app.post("/:campaignID", async (req, res) => {
         const campaignData = campaignDoc.data();
         if (campaignData.totalamount !== 0) {
           if (campaignData.collectedamount + parseFloat(amount) >= campaignData.totalamount) {
-            // TODO: send notification
+            sendNotification(
+                "Цель достигнута!",
+                `Сбор ${campaignData.name} набрал необходимую сумму!`,
+                `${campaignDoc.ref.id}_GOAL_RICHED`,
+            );
           }
         }
 
@@ -417,8 +441,18 @@ app.post("/:campaignID", async (req, res) => {
 exports.updatePayment = functions.https.onRequest(app);
 
 // eslint-disable-next-line no-unused-vars
-const sendNotification = async (title, body, sourceId, deeplink) => {
-
+const sendNotification = async (title, body, topic) => {
+  try {
+    await admin.messaging().send({
+      notification: {
+        title: title,
+        body: body,
+      },
+      topic: topic,
+    });
+  } catch (e) {
+    console.log(`Error sending notification on topic: ${topic}: ${e}`);
+  }
 };
 
 
